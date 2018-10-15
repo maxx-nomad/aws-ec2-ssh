@@ -29,8 +29,8 @@ EOF
 }
 
 SSHD_CONFIG_FILE="/etc/ssh/sshd_config"
-AUTHORIZED_KEYS_COMMAND_FILE="/opt/authorized_keys_command.sh"
-IMPORT_USERS_SCRIPT_FILE="/opt/import_users.sh"
+AUTHORIZED_KEYS_COMMAND_FILE="/var/opt/authorized_keys_command.sh"
+IMPORT_USERS_SCRIPT_FILE="/var/opt/import_users.sh"
 MAIN_CONFIG_FILE="/etc/aws-ec2-ssh.conf"
 
 IAM_GROUPS=""
