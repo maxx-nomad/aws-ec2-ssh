@@ -41,20 +41,18 @@ sed -i 's/DONOTSYNC=0/DONOTSYNC=1/g' ${RPM_BUILD_ROOT}%{_sysconfdir}/aws-ec2-ssh
 echo "*/10 * * * * root /usr/bin/import_users.sh" > ${RPM_BUILD_ROOT}%{_sysconfdir}/cron.d/import_users
 chmod 0644 ${RPM_BUILD_ROOT}%{_sysconfdir}/cron.d/import_users
 
-%post
-sed -i 's:#AuthorizedKeysCommand none:AuthorizedKeysCommand /usr/bin/authorized_keys_command.sh:g' /etc/ssh/sshd_config
-sed -i 's:#AuthorizedKeysCommandUser nobody:AuthorizedKeysCommandUser nobody:g' /etc/ssh/sshd_config
-/etc/init.d/sshd restart
-/sbin/service crond condrestart 2>&1 > /dev/null || :
 
-echo "To configure the aws-ec2-ssh package, edit /etc/aws-ec-ssh.conf. No users will be synchronized before you did this."
+%post
+%include install_configure_sshd.sh
+%include install_configure_selinux.sh
+%include install_restart_sshd.sh
+echo "To configure the aws-ec2-ssh package, edit /etc/aws-ec2-ssh.conf. No users will be synchronized before you did this."
 
 
 %postun
 sed -i 's:AuthorizedKeysCommand /usr/bin/authorized_keys_command.sh:#AuthorizedKeysCommand none:g' /etc/ssh/sshd_config
 sed -i 's:AuthorizedKeysCommandUser nobody:#AuthorizedKeysCommandUser nobody:g' /etc/ssh/sshd_config
-/etc/init.d/sshd restart
-/sbin/service crond condrestart 2>&1 > /dev/null || :
+%include install_restart_sshd.sh
 
 
 %clean

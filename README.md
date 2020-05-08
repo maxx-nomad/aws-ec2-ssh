@@ -1,6 +1,18 @@
 # Manage AWS EC2 SSH access with IAM
 
-Use your IAM user's public SSH key to get access via SSH to an EC2 instance running **Amazon Linux** or **Ubuntu**. Depends on the [AWS CLI](https://aws.amazon.com/cli/) and `git` if you use the `install.sh` script.
+> June 2019: Check out [Amazon EC2 Instance Connect](https://aws.amazon.com/blogs/compute/new-using-amazon-ec2-instance-connect-for-ssh-access-to-your-ec2-instances/) as a replacement for this project
+
+> September 2018: Check out [AWS Systems Manager Session Manager ](https://aws.amazon.com/de/blogs/aws/new-session-manager/) as a replacement for this project
+
+Use your IAM user's public SSH key to get access via SSH to an **EC2 instance** running
+* Amazon Linux 2017.09
+* Amazon Linux 2 2017.12
+* Ubuntu 16.04
+* SUSE Linux Enterprise Server 12 SP3
+* RHEL 7.4
+* CentOS 7
+
+`aws-ec2-ssh` depends on the [AWS CLI](https://aws.amazon.com/cli/) and `git` if you use the `install.sh` script.
 
 ## How does it work
 
@@ -39,8 +51,6 @@ A picture is worth a thousand words:
 
 ### Install via RPM
 
-> Check the [releases](https://github.com/widdix/aws-ec2-ssh/releases) and replace `1.1.0` with the latest released version.
-
 1. Upload your public SSH key to IAM: 
    1. Open the Users section in the [IAM Management Console](https://console.aws.amazon.com/iam/home#users)
    2. Click the row with your user
@@ -48,9 +58,11 @@ A picture is worth a thousand words:
    4. Click the **Upload SSH public key** button at the bottom of the page
    5. Paste your public SSH key into the text-area and click the **Upload SSH public key** button to save
 2. Attach the IAM permissions defined in [`iam_ssh_policy.json`](./iam_ssh_policy.json) to the EC2 instances (by creating an IAM role and an Instance Profile)
-3. Install the RPM: `rpm -i https://s3-eu-west-1.amazonaws.com/widdix-aws-ec2-ssh-releases-eu-west-1/aws-ec2-ssh-1.4.0-1.el7.centos.noarch.rpm`
+3. Install the RPM<sup>1</sup>: `rpm -i https://s3-eu-west-1.amazonaws.com/widdix-aws-ec2-ssh-releases-eu-west-1/aws-ec2-ssh-1.9.2-1.el7.centos.noarch.rpm`
 4. The configuration file is placed into `/etc/aws-ec2-ssh.conf`
 5. The RPM creates a crontab file to run import_users.sh every 10 minutes. This file is placed in `/etc/cron.d/import_users`
+
+> <sup>1</sup>Check the [releases](https://github.com/widdix/aws-ec2-ssh/releases) and use the latest released RPM.
 
 ### Install via install.sh script
 
@@ -94,7 +106,7 @@ one or more of the following lines:
 ```
 ASSUMEROLE="IAM-role-arn"                      # IAM Role ARN for multi account. See below for more info
 IAM_AUTHORIZED_GROUPS="GROUPNAMES"             # Comma separated list of IAM groups to import
-SUDOERS_GROUPS="GROUPNAMES"                    # Comma seperated list of IAM groups that should have sudo access
+SUDOERS_GROUPS="GROUPNAMES"                    # Comma seperated list of IAM groups that should have sudo access or `##ALL##` to allow all users
 IAM_AUTHORIZED_GROUPS_TAG="KeyTag"             # Key Tag of EC2 that contains a Comma separated list of IAM groups to import - IAM_AUTHORIZED_GROUPS_TAG will override IAM_AUTHORIZED_GROUPS, you can use only one of them 
 SUDOERS_GROUPS_TAG="KeyTag"                    # Key Tag of EC2 that contains a Comma separated list of IAM groups that should have sudo access - SUDOERS_GROUPS_TAG will override SUDOERS_GROUPS, you can use only one of them
 SUDOERSGROUP="GROUPNAME"                       # Deprecated! IAM group that should have sudo access. Please use SUDOERS_GROUPS as this variable will be removed in future release.
@@ -102,6 +114,8 @@ LOCAL_MARKER_GROUP="iam-synced-users"          # Dedicated UNIX group to mark im
 LOCAL_GROUPS="GROUPNAMES"                      # Comma seperated list of UNIX groups to add the users in
 USERADD_PROGRAM="/usr/sbin/useradd"            # The useradd program to use. defaults to `/usr/sbin/useradd`
 USERADD_ARGS="--create-home --shell /bin/bash" # Arguments for the useradd program. defaults to `--create-home --shell /bin/bash`
+USERDEL_PROGRAM="/usr/sbin/userdel"            # The userdel program to use. defaults to `/usr/sbin/userdel`
+USERDEL_ARGS="--force --remove"                # Arguments for the userdel program. defaults to `--force --remove`
 ```
 
 The LOCAL_MARKER_GROUP will be created if it does not exist. BEWARE: DO NOT add any manually created users

@@ -2,7 +2,7 @@
 
 show_help() {
 cat << EOF
-Usage: ${0##*/} [-hv] [-a ARN] [-i GROUP,GROUP,...] [-l GROUP,GROUP,...] [-s GROUP] [-p PROGRAM] [-u "ARGUMENTS"]
+Usage: ${0##*/} [-hv] [-a ARN] [-i GROUP,GROUP,...] [-l GROUP,GROUP,...] [-s GROUP] [-p PROGRAM] [-u "ARGUMENTS"] [-r RELEASE]
 Install import_users.sh and authorized_key_commands.
 
     -h                 display this help and exit
@@ -23,15 +23,18 @@ Install import_users.sh and authorized_key_commands.
                        Defaults to '/usr/sbin/useradd'
     -u "useradd args"  Specify arguments to use with useradd.
                        Defaults to '--create-home --shell /bin/bash'
+    -r release         Specify a release of aws-ec2-ssh to download from GitHub. This argument is
+                       passed to \`git clone -b\` and so works with branches and tags.
+                       Defaults to 'master'
 
 
 EOF
 }
 
-SSHD_CONFIG_FILE="/etc/ssh/sshd_config"
-AUTHORIZED_KEYS_COMMAND_FILE="/var/opt/authorized_keys_command.sh"
-IMPORT_USERS_SCRIPT_FILE="/var/opt/import_users.sh"
-MAIN_CONFIG_FILE="/etc/aws-ec2-ssh.conf"
+export SSHD_CONFIG_FILE="/etc/ssh/sshd_config"
+export AUTHORIZED_KEYS_COMMAND_FILE="/opt/authorized_keys_command.sh"
+export IMPORT_USERS_SCRIPT_FILE="/opt/import_users.sh"
+export MAIN_CONFIG_FILE="/etc/aws-ec2-ssh.conf"
 
 IAM_GROUPS=""
 SUDO_GROUPS=""
@@ -39,8 +42,11 @@ LOCAL_GROUPS=""
 ASSUME_ROLE=""
 USERADD_PROGRAM=""
 USERADD_ARGS=""
+USERDEL_PROGRAM=""
+USERDEL_ARGS=""
+RELEASE="master"
 
-while getopts :hva:i:l:s: opt
+while getopts :hva:i:l:s:p:u:d:f:r: opt
 do
     case $opt in
         h)
@@ -68,6 +74,15 @@ do
         u)
             USERADD_ARGS="$OPTARG"
             ;;
+        d)
+            USERDEL_PROGRAM="$OPTARG"
+            ;;
+        f)
+            USERDEL_ARGS="$OPTARG"
+            ;;
+        r)
+            RELEASE="$OPTARG"
+            ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
             show_help
@@ -80,11 +95,32 @@ do
     esac
 done
 
+export IAM_GROUPS
+export SUDO_GROUPS
+export LOCAL_GROUPS
+export ASSUME_ROLE
+export USERADD_PROGRAM
+export USERADD_ARGS
+export USERDEL_PROGRAM
+export USERDEL_ARGS
+
+# check if AWS CLI exists
+if ! [ -x "$(which aws)" ]; then
+    echo "aws executable not found - exiting!"
+    exit 1
+fi
+
+# check if git exists
+if ! [ -x "$(which git)" ]; then
+    echo "git executable not found - exiting!"
+    exit 1
+fi
+
 tmpdir=$(mktemp -d)
 
 cd "$tmpdir"
 
-git clone -b master https://github.com/widdix/aws-ec2-ssh.git
+git clone -b "$RELEASE" https://github.com/widdix/aws-ec2-ssh.git
 
 cd "$tmpdir/aws-ec2-ssh"
 
@@ -121,17 +157,19 @@ then
     echo "USERADD_ARGS=\"${USERADD_ARGS}\"" >> $MAIN_CONFIG_FILE
 fi
 
-if grep -q '#AuthorizedKeysCommand none' $SSHD_CONFIG_FILE; then
-    sed -i "s:#AuthorizedKeysCommand none:AuthorizedKeysCommand ${AUTHORIZED_KEYS_COMMAND_FILE}:g" $SSHD_CONFIG_FILE
-else
-    echo "AuthorizedKeysCommand ${AUTHORIZED_KEYS_COMMAND_FILE}" >> $SSHD_CONFIG_FILE
+if [ "${USERDEL_PROGRAM}" != "" ]
+then
+    echo "USERDEL_PROGRAM=\"${USERDEL_PROGRAM}\"" >> $MAIN_CONFIG_FILE
 fi
 
-if grep -q '#AuthorizedKeysCommandUser nobody' $SSHD_CONFIG_FILE; then
-    sed -i "s:#AuthorizedKeysCommandUser nobody:AuthorizedKeysCommandUser nobody:g" $SSHD_CONFIG_FILE
-else
-    echo "AuthorizedKeysCommandUser nobody" >> $SSHD_CONFIG_FILE
+if [ "${USERDEL_ARGS}" != "" ]
+then
+    echo "USERDEL_ARGS=\"${USERDEL_ARGS}\"" >> $MAIN_CONFIG_FILE
 fi
+
+./install_configure_selinux.sh
+
+./install_configure_sshd.sh
 
 cat > /etc/cron.d/import_users << EOF
 SHELL=/bin/bash
@@ -144,8 +182,4 @@ chmod 0644 /etc/cron.d/import_users
 
 $IMPORT_USERS_SCRIPT_FILE
 
-if [ -f "/etc/init.d/sshd" ]; then
-  service sshd restart
-else
-  service ssh restart
-fi
+./install_restart_sshd.sh
