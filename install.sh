@@ -116,14 +116,7 @@ if ! [ -x "$(which git)" ]; then
     exit 1
 fi
 
-tmpdir=$(mktemp -d)
-
-cd "$tmpdir"
-
-git clone -b "$RELEASE" https://github.com/widdix/aws-ec2-ssh.git
-
-cd "$tmpdir/aws-ec2-ssh"
-
+cp aws-ec2-ssh.conf $MAIN_CONFIG_FILE
 cp authorized_keys_command.sh $AUTHORIZED_KEYS_COMMAND_FILE
 cp import_users.sh $IMPORT_USERS_SCRIPT_FILE
 
